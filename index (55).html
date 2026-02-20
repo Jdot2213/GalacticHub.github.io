@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="tab-title">Galactic Hub</title>
+    <link id="tab-icon" rel="icon" href="https://img.icons8.com">
+    <style>
+        :root {
+            --pink: #ffb6c1; --purple: #9370db; --link-blue: #00bfff;
+            --bg-dark: #0b0b1a; --glass: rgba(147, 112, 219, 0.15);
+            --trans: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; cursor: none; transition: 0.5s; }
+        
+        /* Effects */
+        #nebula-canvas { position: fixed; top: 0; left: 0; z-index: -1; filter: blur(70px); opacity: 0.5; pointer-events: none; }
+        #star-container { position: fixed; width: 100vw; height: 100vh; z-index: -2; pointer-events: none; }
+        .star { position: absolute; background: white; border-radius: 50%; animation: move linear infinite; }
+        @keyframes move { from { transform: translateY(-10vh); } to { transform: translateY(110vh); } }
+        .trail { position: fixed; width: 8px; height: 8px; background: var(--pink); border-radius: 50%; pointer-events: none; z-index: 9998; filter: blur(4px); opacity: 0.8; }
+        #cursor { width: 22px; height: 22px; border: 2px solid var(--pink); border-radius: 50%; position: fixed; pointer-events: none; z-index: 9999; box-shadow: 0 0 15px var(--pink); transform: translate(-50%, -50%); transition: transform 0.05s linear; }
+        #flash-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; opacity: 0; pointer-events: none; z-index: 10000; }
+
+        /* Layout */
+        .sidebar { position: fixed; width: 240px; height: 100vh; background: var(--glass); backdrop-filter: blur(20px); border-right: 1px solid var(--pink); padding: 25px; z-index: 10; display: flex; flex-direction: column; box-sizing: border-box; }
+        .sidebar h1 { color: var(--pink); font-size: 1.4rem; text-shadow: 0 0 10px var(--pink); margin: 0; font-weight: 300; letter-spacing: 2px; }
+        .rank-box { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; border: 1px solid var(--purple); margin: 15px 0; font-size: 11px; }
+        .rank-bar { width: 100%; height: 6px; background: #333; border-radius: 5px; margin-top: 8px; overflow: hidden; }
+        #rank-progress { width: 0%; height: 100%; background: linear-gradient(90deg, var(--pink), var(--purple)); transition: 0.5s; }
+        .sidebar li { list-style: none; padding: 12px; cursor: pointer; border-radius: 10px; transition: var(--trans); margin-bottom: 5px; font-size: 14px; color: #ccc; }
+        .sidebar li:hover, .sidebar li.active { background: rgba(255, 182, 193, 0.2); color: var(--pink); transform: translateX(8px); }
+
+        /* Browser & Arcade */
+        .content { margin-left: 240px; padding: 30px; height: 100vh; overflow-y: auto; box-sizing: border-box; }
+        .tab-content { display: none; opacity: 0; transform: translateY(20px); transition: var(--trans); }
+        .tab-content.active { display: block; opacity: 1; transform: translateY(0); }
+        .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .game-card { background: rgba(255,255,255,0.05); border: 1px solid var(--purple); border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; transition: 0.3s; }
+        .game-card:hover { border-color: var(--pink); transform: scale(1.05); }
+
+        /* System Elements */
+        #notes-popup { position: fixed; bottom: 80px; right: 30px; width: 300px; height: 350px; background: #111; border: 1px solid var(--pink); border-radius: 15px; display: none; flex-direction: column; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .notes-header { padding: 10px; background: var(--pink); color: black; border-radius: 14px 14px 0 0; display: flex; justify-content: space-between; cursor: move; }
+        .notes-area { flex: 1; background: #000; color: #eee; border: none; padding: 15px; resize: none; border-radius: 0 0 14px 14px; }
+        button { background: var(--purple); color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: var(--pink); color: black; }
+        .cloak-btn { padding: 20px 40px; font-size: 1.2rem; background: linear-gradient(45deg, var(--purple), var(--pink)); color: white; border: none; border-radius: 50px; cursor: pointer; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <div id="flash-overlay"></div>
+    <div id="cursor"></div>
+    <canvas id="nebula-canvas"></canvas>
+    <div id="star-container"></div>
+    
+    <nav class="sidebar">
+        <h1>GALACTIC</h1>
+        <div class="rank-box">
+            <span id="rank-name" style="color:var(--pink)">Star-Pilot</span>
+            <div class="rank-bar"><div id="rank-progress"></div></div>
+            <div style="display:flex; justify-content:space-between; margin-top:5px; font-size:9px; opacity:0.6;">
+                <span>XP: <span id="xp-val">0</span></span>
+                <span>⟁ Live: <span id="viewer-count">...</span></span>
+            </div>
+        </div>
+        <ul>
+            <li onclick="setSect('home')" id="l-home" class="active">⟁ Hub Home</li>
+            <li onclick="setSect('games')" id="l-games">◈ Infinite Arcade</li>
+            <li onclick="setSect('browser')" id="l-browser">⎔ Browser</li>
+            <li onclick="setSect('scripts')" id="l-scripts">⧉ Scripts</li>
+            <li onclick="toggleNotes()">✎ Notes</li>
+            <li onclick="setSect('settings')" id="l-settings">⎎ Settings</li>
+        </ul>
+    </nav>
+
+    <div id="notes-popup">
+        <div class="notes-header"><span>⟁ SYSTEM NOTES</span><span onclick="toggleNotes()" style="cursor:pointer">×</span></div>
+        <textarea class="notes-area" id="notes-content" oninput="saveNotes()"></textarea>
+    </div>
+
+    <main class="content">
+        <!-- Home -->
+        <section id="home" class="tab-content active">
+            <h1 style="font-size: 3.8rem; background: linear-gradient(90deg, var(--pink), var(--purple), var(--link-blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">GALACTIC HUB</h1>
+            <p>Archive Synchronized. Stealth Engaged.</p>
+            <button class="cloak-btn" onclick="scrambleHistory()">START YOUR CLOAKING</button>
+        </section>
+
+        <!-- Arcade (FULL INTEGRATION) -->
+        <section id="games" class="tab-content">
+            <h1 style="color:var(--pink)">◈ INFINITE ARCHIVE</h1>
+            <input type="text" id="gSearch" placeholder="Search 100+ Games..." onkeyup="gFilter()" style="width:100%; padding:12px; background:#111; color:white; border:1px solid var(--purple); border-radius:10px; margin-bottom:20px;">
+            <div class="game-grid" id="gameGrid">
+                <!-- Data will be loaded via script -->
+            </div>
+        </section>
+
+        <!-- Browser Section -->
+        <section id="browser" class="tab-content">
+            <div style="height: 80vh; background: #000; border: 1px solid var(--purple); border-radius: 15px; overflow: hidden; display: flex; flex-direction: column;">
+                <div style="background: #111; padding: 10px; display: flex; gap: 10px;">
+                    <input type="text" id="b-url" style="flex:1; padding:8px; border-radius:5px; border:none; background:#222; color:white;" placeholder="Enter URL...">
+                    <button onclick="goNav()">Launch</button>
+                </div>
+                <iframe id="b-frame" style="flex:1; background:white; border:none;" src="about:blank"></iframe>
+            </div>
+        </section>
+        
+        <!-- Settings -->
+        <section id="settings" class="tab-content">
+            <h1 style="color:var(--pink)">⎎ SYSTEM CORE</h1>
+            <div style="background:var(--glass); padding:20px; border-radius:15px; border:1px solid var(--pink);">
+                <button onclick="blobMe()">⎎ GHOST MODE (BLOB)</button>
+                <button onclick="scrambleHistory()">◈ CLEANSE HISTORY</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- THE FULL GAME ARCHIVE ---
+        const ugs_root = "https://brickyosu.github.io";
+        const arcade_games = [
+            "1v1lol.html", "2048.html", "9007199254740992.html", "adventure-drivers.html", "alien-hominid.html", 
+            "among-us.html", "backrooms.html", "bad-ice-cream.html", "bad-ice-cream-2.html", "bad-ice-cream-3.html", 
+            "ball-blast.html", "basket-stars.html", "bitlife.html", "bloons-td-4.html", "bob-the-robber-2.html",
+            "boxing-physics-2.html", "breaklock.html", "bullet-force.html", "cars-simulator.html", "crossy-road.html",
+            "cubefield.html", "death-run-3d.html", "doge-miner.html", "drive-mad.html", "edge-not-found.html",
+            "evil-glitch.html", "fireboy-watergirl.html", "funny-shooter-2.html", "getaway-shootout.html", "google-feud.html",
+            "happy-wheels.html", "impossible-quiz.html", "iron-snout.html", "jelly-truck.html", "madalin-cars-2.html",
+            "minecraft.html", "monkey-mart.html", "moto-x3m.html", "paperio2.html", "pixel-gun-survival.html",
+            "popeye.html", "qube-2048.html", "retro-bowl.html", "rooftop-snipers.html", "slope.html",
+            "snow-battle.html", "subway-surfers.html", "tanuki-sunset.html", "temple-run-2.html", "territorial-io.html",
+            "tunnel-rush.html", "vex-3.html", "vex-4.html", "vex-5.html", "vex-6.html", "vex-7.html"
+        ];
+
+        let xp = parseInt(localStorage.getItem('gh_xp')) || 0;
+        const cur = document.getElementById('cursor');
+
+        // --- MOUSE & VISUALS ---
+        document.addEventListener('mousemove', e => {
+            cur.style.left = e.clientX + 'px'; cur.style.top = e.clientY + 'px';
+            xp += 0.01; updateXP();
+            let t = document.createElement('div'); t.className = 'trail';
+            t.style.left = e.clientX + 'px'; t.style.top = e.clientY + 'px';
+            document.body.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'scale(0)'; }, 50);
+            setTimeout(() => t.remove(), 400);
+        });
+
+        function updateXP() {
+            localStorage.setItem('gh_xp', Math.floor(xp));
+            document.getElementById('rank-progress').style.width = (xp % 5000 / 50) + '%';
+            document.getElementById('xp-val').innerText = Math.floor(xp);
+            if(xp > 5000) document.getElementById('rank-name').innerText = "Nebula Overlord";
+        }
+
+        function setSect(id) {
+            document.querySelectorAll('.tab-content, .sidebar li').forEach(el=>el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.getElementById('l-'+id).classList.add('active');
+        }
+
+        function loadGames() {
+            const grid = document.getElementById('gameGrid');
+            grid.innerHTML = arcade_games.map(g => {
+                const name = g.replace('.html', '').replace(/-/g, ' ').toUpperCase();
+                return `<div class="game-card" onclick="playGame('${ugs_root}${g}')"><h4>${name}</h4></div>`;
+            }).join('');
+        }
+
+        function playGame(url) {
+            setSect('browser');
+            document.getElementById('b-frame').src = url;
+        }
+
+        function goNav() {
+            let u = document.getElementById('b-url').value;
+            if(!u.includes('://')) u = 'https://' + u;
+            document.getElementById('b-frame').src = u;
+        }
+
+        function toggleNotes() { const n = document.getElementById('notes-popup'); n.style.display = (n.style.display==='flex')?'none':'flex'; }
+        function saveNotes() { localStorage.setItem('gh_notes', document.getElementById('notes-content').value); }
+        function scrambleHistory() { ["https://wikipedia.org","https://quizlet.com"].forEach(l=>window.history.pushState({},'',l)); alert("Cloak Enabled."); }
+        function blobMe() { location.href = URL.createObjectURL(new Blob([document.documentElement.outerHTML],{type:'text/html'})); }
+
+        window.onload = () => {
+            loadGames();
+            document.getElementById('notes-content').value = localStorage.getItem('gh_notes') || "";
+            setInterval(() => { document.getElementById('viewer-count').innerText = Math.floor(Math.random()*500+1100).toLocaleString(); }, 3000);
+            // Nebula logic
+            const nC = document.getElementById('nebula-canvas'), nCtx = nC.getContext('2d');
+            nC.width=window.innerWidth; nC.height=window.innerHeight;
+            let nP = []; for(let i=0;i<12;i++) nP.push({x:Math.random()*nC.width,y:Math.random()*nC.height,s:Math.random()*250+100,c:Math.random()>0.5?'#ffb6c1':'#9370db'});
+            function nA(){nCtx.clearRect(0,0,nC.width,nC.height);nP.forEach(p=>{nCtx.fillStyle=p.c;nCtx.beginPath();nCtx.arc(p.x,p.y,p.s,0,Math.PI*2);nCtx.fill();p.x+=0.2;if(p.x>nC.width+250)p.x=-250;});requestAnimationFrame(nA);}nA();
+            // Stars
+            const sC = document.getElementById('star-container');
+            for(let i=0;i<80;i++){const s=document.createElement('div');s.className='star';s.style.width=s.style.height=Math.random()*3+'px';s.style.left=Math.random()*100+'vw';s.style.animationDuration=(Math.random()*4+3)+'s';sC.appendChild(s);}
+        };
+
+        window.onkeydown = e => { if(e.key==='Escape') location.replace('https://google.com'); };
+    </script>
+</body>
+</html>
